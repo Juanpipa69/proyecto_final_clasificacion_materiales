@@ -12,6 +12,7 @@ data:
   sheets:
     maestro_materiales: "Maestro_materiales"
     taxonomia: "Taxonomia"
+    externo: "Verdad_items_texto_libre"
 target:
   column: "Familia (codigo)"
   n_classes: 8
@@ -30,19 +31,16 @@ split:
   val_size: 0.10
   random_state: 42
   stratify: true
-models:
-  logistic_regression:
-    enabled: true
-    params: {C: 1.0, max_iter: 1000, class_weight: "balanced"}
-  random_forest:
-    enabled: true
-    params: {n_estimators: 200, class_weight: "balanced", n_jobs: -1}
-  xgboost:
-    enabled: true
-    params: {n_estimators: 200, max_depth: 6, learning_rate: 0.1, eval_metric: "mlogloss"}
+cv:
+  n_splits: 5
+tuning:
+  n_iter: 12
+artifacts:
+  models_dir: "models"
+  reports_dir: "reports"
+  model_file: "champion.joblib"
 mlflow:
   tracking_uri: "sqlite:///mlflow.db"
   experiment_name: "clasificacion-materiales-familia"
   registered_model_name: "clasificacion-materiales"
   champion_alias: "champion"
-

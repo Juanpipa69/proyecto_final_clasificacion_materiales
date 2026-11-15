@@ -1,7 +1,8 @@
 ﻿"""Lineas base para contextualizar el desempeno del modelo campeon.
 
-Compara el campeon contra modelos simples sobre el mismo split de test y
-evalua el campeon en un test "limpio" (sin texto_breve repetido en train).
+Entrena modelos simples con el mismo conjunto de desarrollo que el campeon
+(train + val) y los compara en el mismo test reservado. Ademas evalua el
+campeon en un test "limpio" (sin texto_breve identico a alguno de desarrollo).
 Guarda reports/baselines.json y reports/baselines.md.
 """
 from __future__ import annotations
@@ -10,6 +11,7 @@ import json
 import warnings
 from pathlib import Path
 
+import pandas as pd
 from sklearn.compose import ColumnTransformer
 from sklearn.dummy import DummyClassifier
 from sklearn.ensemble import RandomForestClassifier
@@ -17,35 +19,33 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import f1_score
 from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import LabelEncoder, OneHotEncoder, StandardScaler
+from sklearn.preprocessing import OneHotEncoder, StandardScaler
 
 from src.data.load_data import load_maestro
-from src.features.build_features import build_preprocessor
-from src.models.train import _get_candidates, make_splits
+from src.evaluation.metrics import load_champion
+from src.models.train import TARGET, make_splits
 from src.utils.config_loader import load_config
 
 warnings.filterwarnings("ignore")
-REPORTS = Path("reports")
 NUM = ["precio_usd", "filas_me2m", "items_ariba"]
 
 
-def _f1(pipe, df_train, y_train, df_eval, y_eval):
-    pipe.fit(df_train, y_train)
-    return round(f1_score(y_eval, pipe.predict(df_eval), average="macro"), 4)
+def _f1(model, X, y):
+    return round(f1_score(y, model.predict(X), average="macro"), 4)
 
 
 def main():
     config = load_config()
     seed = config.get("split", {}).get("random_state", 42)
-    df = load_maestro(config)
-    df["familia_cod"] = LabelEncoder().fit_transform(df["familia_cod"])
-    df_train, _, df_test, y_train, _, y_test = make_splits(df, "familia_cod", config)
+    reports = Path(config.get("artifacts", {}).get("reports_dir", "reports"))
+    bundle = load_champion(config)
+    champion, classes = bundle["pipeline"], bundle["classes"]
 
-    summary_path = REPORTS / "metrics_summary.json"
-    champion = (
-        json.loads(summary_path.read_text(encoding="utf-8"))["champion"]
-        if summary_path.exists() else "RandomForest"
-    )
+    df = load_maestro(config)
+    df[TARGET] = df[TARGET].map({c: i for i, c in enumerate(classes)})
+    df_train, df_val, df_test, _, _, y_test = make_splits(df, TARGET, config)
+    df_dev = pd.concat([df_train, df_val])
+    y_dev = df_dev[TARGET]
 
     baselines = {
         "Azar (clase mas frecuente)": Pipeline([
@@ -71,44 +71,35 @@ def main():
 
     results = {}
     for name, pipe in baselines.items():
-        results[name] = _f1(pipe, df_train, y_train, df_test, y_test)
-        print(f"  {name:<40} F1-macro test = {results[name]:.4f}")
+        pipe.fit(df_dev, y_dev)
+        results[name] = _f1(pipe, df_test, y_test)
+        print(f"  {name:<45} F1-macro test = {results[name]:.4f}")
 
-    def champion_pipe():
-        return Pipeline([
-            ("preprocessor", build_preprocessor(config)),
-            ("clf", _get_candidates(seed)[champion]),
-        ])
+    champ_name = f"Modelo del proyecto ({bundle['algorithm']})"
+    results[champ_name] = _f1(champion, df_test, y_test)
+    print(f"  {champ_name:<45} F1-macro test = {results[champ_name]:.4f}")
 
-    champ_name = f"Modelo del proyecto ({champion})"
-    results[champ_name] = _f1(champion_pipe(), df_train, y_train, df_test, y_test)
-    print(f"  {champ_name:<40} F1-macro test = {results[champ_name]:.4f}")
-
-    mask = ~df_test["texto_breve"].isin(set(df_train["texto_breve"]))
+    mask = ~df_test["texto_breve"].isin(set(df_dev["texto_breve"]))
     n_dup = int((~mask).sum())
-    clean_f1 = _f1(champion_pipe(), df_train, y_train, df_test[mask], y_test[mask])
-    print(f"\n  Test sin duplicados de train ({int(mask.sum())} de {len(df_test)} filas, "
+    clean_f1 = _f1(champion, df_test[mask], y_test[mask])
+    print(f"\n  Test sin texto_breve repetido ({int(mask.sum())} de {len(df_test)} filas, "
           f"{n_dup} quitadas): F1-macro = {clean_f1:.4f}")
 
-    REPORTS.mkdir(exist_ok=True)
     out = {
         "f1_macro_test": results,
         "test_sin_duplicados": {
             "filas": int(mask.sum()), "duplicados_quitados": n_dup, "f1_macro": clean_f1,
         },
     }
-    (REPORTS / "baselines.json").write_text(
+    (reports / "baselines.json").write_text(
         json.dumps(out, indent=2, ensure_ascii=False), encoding="utf-8"
     )
-
     lines = ["# Lineas base - F1-macro en test", "", "| Enfoque | F1-macro |", "|---|---|"]
     lines += [f"| {k} | {v:.4f} |" for k, v in results.items()]
-    lines += [
-        "", f"Test sin texto_breve repetido en train: {int(mask.sum())} filas "
-        f"({n_dup} quitadas), F1-macro = {clean_f1:.4f}", "",
-    ]
-    (REPORTS / "baselines.md").write_text("\n".join(lines), encoding="utf-8")
-    print("\nGuardado: reports\\baselines.json y reports\\baselines.md")
+    lines += ["", f"Test sin texto_breve repetido: {int(mask.sum())} filas "
+              f"({n_dup} quitadas), F1-macro = {clean_f1:.4f}", ""]
+    (reports / "baselines.md").write_text("\n".join(lines), encoding="utf-8")
+    print(f"\nGuardado: {reports / 'baselines.json'} y {reports / 'baselines.md'}")
 
 
 if __name__ == "__main__":

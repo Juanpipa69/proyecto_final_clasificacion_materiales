@@ -1,7 +1,74 @@
 {
-  "champion": "RandomForest",
-  "f1_macro_val": 0.9881,
-  "f1_macro_test": 0.9893,
+  "champion": "LinearSVC",
+  "feature_set": "completo",
+  "best_params": {
+    "preprocessor__text__ngram_range": [
+      1,
+      1
+    ],
+    "preprocessor__text__min_df": 1,
+    "clf__estimator__C": 3
+  },
+  "f1_macro_cv_antes_tuning": 0.9969,
+  "f1_macro_cv_despues_tuning": 0.9979,
+  "f1_macro_train_cv": 1.0,
+  "f1_macro_test": 1.0,
+  "test": {
+    "accuracy": 1.0,
+    "precision_macro": 1.0,
+    "recall_macro": 1.0,
+    "f1_macro": 1.0,
+    "f1_weighted": 1.0,
+    "roc_auc_ovr_macro": 1.0,
+    "pr_auc_macro": 1.0
+  },
+  "externo_texto_libre": {
+    "accuracy": 0.992,
+    "precision_macro": 0.9919,
+    "recall_macro": 0.9924,
+    "f1_macro": 0.9921,
+    "f1_weighted": 0.992,
+    "roc_auc_ovr_macro": 1.0,
+    "pr_auc_macro": 0.9999,
+    "n_items": 249
+  },
+  "cv_algoritmos": {
+    "LogisticRegression": {
+      "f1_macro_cv": 0.99,
+      "std": 0.0045,
+      "segundos": 2.0
+    },
+    "LinearSVC": {
+      "f1_macro_cv": 0.9969,
+      "std": 0.0027,
+      "segundos": 4.1
+    },
+    "DecisionTree": {
+      "f1_macro_cv": 0.9754,
+      "std": 0.0057,
+      "segundos": 1.1
+    },
+    "RandomForest": {
+      "f1_macro_cv": 0.9944,
+      "std": 0.004,
+      "segundos": 2.4
+    },
+    "XGBoost": {
+      "f1_macro_cv": 0.9819,
+      "std": 0.0061,
+      "segundos": 24.9
+    }
+  },
+  "cv_feature_sets": {
+    "completo": {
+      "f1_macro_cv": 0.9969,
+      "std": 0.0027
+    },
+    "solo_texto_breve": {
+      "f1_macro_cv": 0.9957,
+      "std": 0.0014
+    }
+  },
   "classes": [
     "ELE",
     "EPP",
@@ -13,23 +80,10 @@
     "TUV"
   ],
   "split": {
-    "train": 1750,
-    "val": 250,
+    "desarrollo": 2000,
     "test": 500,
-    "agrupado_por": "grupo_id"
+    "agrupado_por": "grupo_id",
+    "cv_folds": 5
   },
-  "all_models": {
-    "LogisticRegression": {
-      "f1_val": 0.9838,
-      "f1_weighted": 0.9839
-    },
-    "RandomForest": {
-      "f1_val": 0.9881,
-      "f1_weighted": 0.988
-    },
-    "XGBoost": {
-      "f1_val": 0.9833,
-      "f1_weighted": 0.984
-    }
-  }
+  "modelo": "models\\champion.joblib"
 }
