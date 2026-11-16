@@ -1,0 +1,43 @@
+{
+  "columnas_usadas_por_el_modelo": [
+    "texto_completo",
+    "texto_breve",
+    "marca",
+    "um",
+    "precio_usd",
+    "filas_me2m",
+    "items_ariba"
+  ],
+  "patrones_datos_personales_en_entradas": {
+    "correo": 0,
+    "telefono_movil_co": 0,
+    "numero_8_10_digitos": 0
+  },
+  "vocabulario_en_artefacto": {
+    "terminos": 4336,
+    "patrones": {
+      "correo": 0,
+      "telefono_movil_co": 0,
+      "numero_8_10_digitos": 0
+    }
+  },
+  "membership_inference": {
+    "metodo": "umbral sobre la confianza maxima (atacante de caja negra)",
+    "auc": 0.5061,
+    "confianza_media_entrenamiento": 0.9822,
+    "confianza_media_no_vistos": 0.9785
+  },
+  "equidad_entre_clases": {
+    "f1_por_familia": {
+      "ELE": 1.0,
+      "EPP": 1.0,
+      "HER": 1.0,
+      "INS": 1.0,
+      "LUB": 1.0,
+      "MEC": 1.0,
+      "QUI": 1.0,
+      "TUV": 1.0
+    },
+    "brecha_max_min": 0.0
+  }
+}
