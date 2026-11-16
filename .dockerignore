@@ -1,0 +1,19 @@
+﻿# Solo entran a la imagen el codigo, la configuracion y las dependencias.
+# Los datos NO se copian: se montan en tiempo de ejecucion (solo lectura).
+.git
+.venv
+venv
+__pycache__/
+*.pyc
+.env
+.dvc
+Data/
+data/
+models/
+reports/
+mlruns/
+mlartifacts/
+mlflow.db
+notebooks/
+Monitoring/
+*.md

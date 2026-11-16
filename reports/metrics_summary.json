@@ -36,29 +36,29 @@
   },
   "cv_algoritmos": {
     "LogisticRegression": {
-      "f1_macro_cv": 0.99,
-      "std": 0.0045,
-      "segundos": 1.9
+      "f1_macro_cv": 0.9895,
+      "std": 0.0041,
+      "segundos": 25.0
     },
     "LinearSVC": {
       "f1_macro_cv": 0.9969,
       "std": 0.0027,
-      "segundos": 4.0
+      "segundos": 4.4
     },
     "DecisionTree": {
-      "f1_macro_cv": 0.9754,
-      "std": 0.0057,
-      "segundos": 0.9
+      "f1_macro_cv": 0.974,
+      "std": 0.0058,
+      "segundos": 1.0
     },
     "RandomForest": {
       "f1_macro_cv": 0.9944,
-      "std": 0.004,
-      "segundos": 2.3
+      "std": 0.002,
+      "segundos": 3.5
     },
     "XGBoost": {
-      "f1_macro_cv": 0.9819,
-      "std": 0.0061,
-      "segundos": 25.9
+      "f1_macro_cv": 0.9808,
+      "std": 0.0057,
+      "segundos": 20.1
     }
   },
   "cv_feature_sets": {
@@ -87,5 +87,5 @@
     "agrupado_por": "grupo_id",
     "cv_folds": 5
   },
-  "modelo": "models\\champion.joblib"
+  "modelo": "models/champion.joblib"
 }

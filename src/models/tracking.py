@@ -1,4 +1,4 @@
-﻿"""Registro de experimentos y modelos en MLflow.
+"""Registro de experimentos y modelos en MLflow.
 
 Por cada entrenamiento crea un run padre con parametros, metricas, artefactos
 (config, reportes, graficas) y el modelo con firma (signature) y ejemplo de
@@ -14,12 +14,15 @@ como AppLocker), se avisa y el pipeline sigue: el modelo ya quedo en models/.
 """
 from __future__ import annotations
 
+import os
 import platform
 import subprocess
 from pathlib import Path
 
 
 def _git_commit() -> str:
+    if os.environ.get("GIT_COMMIT"):  # dentro de Docker no hay git: se pasa por variable
+        return os.environ["GIT_COMMIT"]
     try:
         out = subprocess.run(["git", "rev-parse", "--short", "HEAD"],
                              capture_output=True, text=True, timeout=5)
@@ -83,7 +86,9 @@ def log_run(config: dict, result: dict, artifacts: list[Path], register: bool = 
                       else f"{experiment}-{nivel}")
 
     try:
-        mlflow.set_tracking_uri(cfg.get("tracking_uri", "sqlite:///mlflow.db"))
+        # MLFLOW_TRACKING_URI (p. ej. el servidor de docker compose) tiene prioridad
+        mlflow.set_tracking_uri(os.environ.get("MLFLOW_TRACKING_URI")
+                                or cfg.get("tracking_uri", "sqlite:///mlflow.db"))
         mlflow.set_experiment(experiment)
 
         with mlflow.start_run(run_name=f"{m['champion']}-{m['feature_set']}") as run:

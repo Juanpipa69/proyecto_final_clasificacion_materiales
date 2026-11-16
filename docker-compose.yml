@@ -1,0 +1,53 @@
+# Uso:
+#   docker compose up -d mlflow api        -> MLflow (5000) y API (8000)
+#   docker compose run --rm train          -> entrena y registra en MLflow
+#   docker compose down                    -> detiene todo (los volumenes se conservan)
+services:
+  mlflow:
+    build: .
+    image: clasificacion-materiales:1.0
+    command: >
+      mlflow server --host 0.0.0.0 --port 5000
+      --backend-store-uri sqlite:////mlflow/mlflow.db
+      --artifacts-destination /mlflow/artifacts
+      --serve-artifacts
+      --allowed-hosts mlflow:5000,localhost:5000,127.0.0.1:5000
+    ports:
+      - "127.0.0.1:5000:5000"   # solo accesible desde este computador
+    volumes:
+      - mlflow-data:/mlflow
+
+  train:
+    image: clasificacion-materiales:1.0
+    profiles: ["train"]          # no arranca con "up"; se ejecuta con "run"
+    command: python -m src.pipelines.run_pipeline
+    environment:
+      MLFLOW_TRACKING_URI: http://mlflow:5000
+      GIT_COMMIT: ${GIT_COMMIT:-desconocido}
+      GIT_PYTHON_REFRESH: quiet    # el contenedor no tiene git: evita avisos de MLflow
+    volumes:
+      - ./Data:/app/Data:ro      # datos de solo lectura, fuera de la imagen
+      - models:/app/models
+      - ./reports:/app/reports
+    depends_on:
+      - mlflow
+
+  api:
+    image: clasificacion-materiales:1.0
+    environment:
+      MODEL_PATH: /app/models/champion.joblib
+      API_KEY: ${API_KEY:-}        # vacio = sin clave (solo para uso local)
+      API_MAX_ITEMS: "100"
+    ports:
+      - "127.0.0.1:8000:8000"
+    volumes:
+      - models:/app/models:ro
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+volumes:
+  mlflow-data:
+  models:
