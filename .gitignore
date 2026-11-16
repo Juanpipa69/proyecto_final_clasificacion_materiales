@@ -7,3 +7,5 @@ mlruns/
 /data/processed
 /models
 .env
+mlflow.db
+mlartifacts/

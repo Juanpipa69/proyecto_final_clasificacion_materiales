@@ -1,4 +1,4 @@
-﻿"""Entrenamiento, seleccion, optimizacion y evaluacion del modelo campeon.
+"""Entrenamiento, seleccion, optimizacion y evaluacion del modelo campeon.
 
 Flujo:
  1. Carga y validacion de datos.
@@ -14,6 +14,7 @@ Pipeline, por lo que en cada fold se ajusta solo con los datos de entrenamiento.
 """
 from __future__ import annotations
 
+import argparse
 import json
 import time
 import warnings
@@ -44,6 +45,9 @@ warnings.filterwarnings("ignore", category=UserWarning)
 warnings.filterwarnings("ignore", category=FutureWarning)
 
 TARGET = "familia_cod"
+TARGETS = {"familia": "familia_cod", "categoria": "categoria_cod"}
+FEATURE_COLS = ["texto_completo", "texto_breve", "marca", "um",
+                "precio_usd", "filas_me2m", "items_ariba"]
 
 # Espacios de busqueda de hiperparametros (prefijo "clf__" = el clasificador)
 PARAM_SPACES = {
@@ -139,8 +143,10 @@ def _cv_score(pipe, X, y, groups, cv) -> tuple[float, float]:
     return float(scores.mean()), float(scores.std())
 
 
-def run_training(config=None):
+def run_training(config=None, target: str = TARGET):
+    """Entrena para `target` (familia_cod por defecto) y devuelve metricas y modelo."""
     config = config or load_config()
+    suffix = "" if target == TARGET else "_" + target.replace("_cod", "")
     seed = config.get("split", {}).get("random_state", 42)
     reports = Path(config.get("artifacts", {}).get("reports_dir", "reports"))
     models_dir = Path(config.get("artifacts", {}).get("models_dir", "models"))
@@ -156,15 +162,15 @@ def run_training(config=None):
         raise ValueError("La validacion de datos fallo; revisa los errores arriba.")
 
     encoder = LabelEncoder()
-    df[TARGET] = encoder.fit_transform(df[TARGET])
+    df[target] = encoder.fit_transform(df[target])
     class_names = list(encoder.classes_)
     n_classes = len(class_names)
 
     # 2. Split: desarrollo (train+val) para CV y test intocable
     print("\nGenerando splits...")
-    df_train, df_val, df_test, _, _, y_test = make_splits(df, TARGET, config)
+    df_train, df_val, df_test, _, _, y_test = make_splits(df, target, config)
     df_dev = pd.concat([df_train, df_val]).reset_index(drop=True)
-    y_dev, groups_dev = df_dev[TARGET], df_dev["grupo_id"]
+    y_dev, groups_dev = df_dev[target], df_dev["grupo_id"]
     cv = StratifiedGroupKFold(
         n_splits=config.get("cv", {}).get("n_splits", 5), shuffle=True, random_state=seed
     )
@@ -217,26 +223,37 @@ def run_training(config=None):
     print(f"  F1 train (promedio folds) = {train_cv:.4f} vs CV = {after:.4f}"
           f"  (brecha {train_cv - after:.4f})")
     print(f"  Mejores parametros: {best_params}")
-    model = search.best_estimator_  # reentrenado con todo el conjunto de desarrollo
+    tuning_mejoro = after > before
+    if tuning_mejoro:
+        model = search.best_estimator_  # reentrenado con todo el conjunto de desarrollo
+    else:
+        print("  El tuning no supero la configuracion por defecto: se conserva la por defecto.")
+        model = build_pipeline(_get_candidates(seed)[best_algo], config, best_fs)
+        model.fit(df_dev, y_dev)
+        best_params = {"configuracion": "por_defecto"}
 
     # 6. Evaluacion final: test reservado y set externo
     print("\n[4/4] Evaluacion final...")
     test_metrics = classification_metrics(model, df_test, y_test, n_classes)
     report_test = classification_report(y_test, model.predict(df_test), target_names=class_names)
-    X_ext, y_ext_names = load_external(config)
-    known = y_ext_names.isin(class_names)
-    y_ext = encoder.transform(y_ext_names[known])
-    ext_metrics = classification_metrics(model, X_ext[known], y_ext, n_classes)
-    ext_metrics["n_items"] = int(known.sum())
     print(f"  TEST     : {test_metrics}")
-    print(f"  EXTERNO  : {ext_metrics}")
+    ext_metrics = {}
+    if target == TARGET:  # el set externo solo trae la familia real
+        X_ext, y_ext_names = load_external(config)
+        known = y_ext_names.isin(class_names)
+        y_ext = encoder.transform(y_ext_names[known])
+        ext_metrics = classification_metrics(model, X_ext[known], y_ext, n_classes)
+        ext_metrics["n_items"] = int(known.sum())
+        print(f"  EXTERNO  : {ext_metrics}")
     print(f"\nReporte test:\n\n{report_test}")
 
     # 7. Artefactos
-    model_path = models_dir / config.get("artifacts", {}).get("model_file", "champion.joblib")
+    model_file = config.get("artifacts", {}).get("model_file", "champion.joblib")
+    model_path = models_dir / model_file.replace(".joblib", f"{suffix}.joblib")
     joblib.dump({
         "pipeline": model,
         "classes": class_names,
+        "target": target,
         "algorithm": best_algo,
         "feature_set": best_fs,
         "params": best_params,
@@ -244,14 +261,16 @@ def run_training(config=None):
         "trained_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
     }, model_path)
 
-    (reports / "test_report_champion.txt").write_text(report_test, encoding="utf-8")
+    (reports / f"test_report_champion{suffix}.txt").write_text(report_test, encoding="utf-8")
     metrics = {
+        "target": target,
         "champion": best_algo,
         "feature_set": best_fs,
         "best_params": best_params,
         "f1_macro_cv_antes_tuning": before,
         "f1_macro_cv_despues_tuning": after,
         "f1_macro_train_cv": train_cv,
+        "tuning_mejoro": tuning_mejoro,
         "f1_macro_test": test_metrics["f1_macro"],
         "test": test_metrics,
         "externo_texto_libre": ext_metrics,
@@ -262,15 +281,30 @@ def run_training(config=None):
                   "cv_folds": cv.n_splits},
         "modelo": str(model_path),
     }
-    (reports / "metrics_summary.json").write_text(
-        json.dumps(metrics, indent=2, ensure_ascii=False), encoding="utf-8"
-    )
+    summary_path = reports / f"metrics_summary{suffix}.json"
+    summary_path.write_text(json.dumps(metrics, indent=2, ensure_ascii=False), encoding="utf-8")
     print(f"\nModelo guardado en {model_path}")
-    print(f"Metricas guardadas en {reports / 'metrics_summary.json'}")
-    print(f"\nCAMPEON: {best_algo} ({best_fs}) | F1-macro test = {test_metrics['f1_macro']:.4f}"
-          f" | externo = {ext_metrics['f1_macro']:.4f}")
-    return metrics
+    print(f"Metricas guardadas en {summary_path}")
+    externo = f" | externo = {ext_metrics['f1_macro']:.4f}" if ext_metrics else ""
+    print(f"\nCAMPEON ({target}): {best_algo} ({best_fs}) | "
+          f"F1-macro test = {test_metrics['f1_macro']:.4f}{externo}")
+    return {
+        "metrics": metrics,
+        "model": model,
+        "X_example": df_test[FEATURE_COLS].head(5).reset_index(drop=True),
+        "model_path": model_path,
+        "summary_path": summary_path,
+        "test_report_path": reports / f"test_report_champion{suffix}.txt",
+    }
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Entrena el clasificador de materiales.")
+    parser.add_argument("--target", choices=list(TARGETS), default="familia",
+                        help="Nivel de la taxonomia a predecir (por defecto: familia)")
+    args = parser.parse_args()
+    run_training(target=TARGETS[args.target])
 
 
 if __name__ == "__main__":
-    run_training()
+    main()
