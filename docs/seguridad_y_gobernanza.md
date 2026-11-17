@@ -1,4 +1,4 @@
-﻿# Seguridad, privacidad y gobernanza
+# Seguridad, privacidad y gobernanza
 
 Este documento separa lo **implementado y verificado** en el proyecto de lo que queda como **recomendación pendiente de validación**. No constituye una evaluación de cumplimiento normativo: para afirmar cumplimiento de la Ley 1581 de 2012 o del GDPR se requiere una revisión formal con el área jurídica y el oficial de protección de datos de la organización.
 
@@ -62,6 +62,7 @@ La evidencia cuantitativa se genera con `python -m src.evaluation.privacy_checks
 | Criterio de clasificación explicable | El modelo es lineal (LinearSVC) sobre palabras del texto: la decisión depende de términos identificables |
 | Incertidumbre visible | Cada predicción trae su confianza y dos alternativas, para revisión humana en casos dudosos |
 | Equidad entre clases | Brecha de F1 entre la mejor y la peor familia en test: 0.000 (`privacidad_seguridad.json`) |
+| Monitoreo de deriva | `python -m Monitoring.drift_monitoring` compara lotes nuevos contra la referencia (palabras desconocidas, confianza media y PSI de familias) y recomienda reentrenar si se superan los umbrales. Con los ítems de texto libre de Ariba: sin deriva relevante; con materiales de otro dominio: alerta (probado en `tests/test_monitoreo.py`) |
 | Comparación honesta | Líneas base (`reports/baselines.md`): la agrupación SAP actual obtiene 0.72 frente a 1.000 del modelo en test |
 
 ## 3. Limitaciones del modelo
@@ -82,5 +83,5 @@ Estas medidas **no están implementadas**; se proponen para un uso con datos rea
 | Límite de solicitudes | Agregar rate limiting por clave o por IP (p. ej. en un proxy inverso) para dificultar ataques de extracción del modelo |
 | Gestión de secretos | Usar un gestor de secretos (Azure Key Vault, AWS Secrets Manager) en lugar de variables escritas en la terminal |
 | Escaneo de dependencias | Ejecutar `pip-audit` o Trivy sobre la imagen en cada versión |
-| Monitoreo | Implementar `Monitoring/drift_monitoring.py` (hoy vacío) para vigilar la distribución de textos y la confianza media en producción, y reentrenar cuando cambien |
+| Monitoreo en producción | Programar `Monitoring.drift_monitoring` sobre cada lote real (p. ej. semanal), conectar sus alertas al equipo responsable y ajustar los umbrales con datos reales |
 | Revisión humana | Enviar a revisión manual las predicciones con confianza menor a un umbral acordado con el negocio |

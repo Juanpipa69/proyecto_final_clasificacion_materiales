@@ -1,0 +1,19 @@
+{
+  "umbrales": {
+    "oov": 0.25,
+    "caida_confianza": 0.1,
+    "psi": 0.25
+  },
+  "referencia": "test reservado (500 materiales no vistos)",
+  "lote_nuevo": "items de Ariba en texto libre (249)",
+  "indicadores": {
+    "oov_referencia": 0.0762,
+    "oov_lote": 0.0707,
+    "confianza_referencia": 0.9785,
+    "confianza_lote": 0.8944,
+    "pct_baja_confianza_lote": 0.0241,
+    "psi_familias": 0.0205
+  },
+  "alertas": [],
+  "recomendacion": "Sin deriva relevante"
+}
