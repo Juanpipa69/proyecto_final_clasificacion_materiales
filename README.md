@@ -1,4 +1,4 @@
-# Clasificación automática de materiales industriales
+﻿# Clasificación automática de materiales industriales
 
 Proyecto final de la Especialización en Ciencia de Datos e Inteligencia Artificial, Universidad de Medellín.
 
@@ -139,7 +139,7 @@ Las 8 familias están balanceadas (entre 261 y 359 materiales). **100 materiales
 | Solo texto breve (TF-IDF + LogReg) | 0.998 |
 | **Modelo del proyecto** | **1.000** |
 
-**Escalabilidad:** el mismo pipeline, sin cambios, alcanza **F1-macro 0.999** al predecir la **categoría (40 clases)**.
+**Escalabilidad:** el mismo pipeline, sin cambios, alcanza **F1-macro entre 0.997 y 0.999** (varía según la máquina; ver Limitaciones) al predecir la **categoría (40 clases)**.
 
 **Prevención de fuga:** al agrupar los duplicados en el split, el F1 de validación de RandomForest bajó de 1.000 a 0.988, lo que confirmó que la fuga existía y quedó corregida.
 
